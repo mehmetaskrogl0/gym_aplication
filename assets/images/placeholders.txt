@@ -1,0 +1,6 @@
+Placeholders for future local images:
+- hero-athlete.jpg (dashboard hero)
+- workout-banner.jpg (workout page)
+- step-tracker-banner.jpg (steps page)
+
+Current template uses remote Unsplash placeholders in CSS.
