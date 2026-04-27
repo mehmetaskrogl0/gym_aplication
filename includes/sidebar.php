@@ -5,6 +5,7 @@
             <a class="btn btn-success btn-fit" href="#meal-log-form">Log Meal</a>
             <a class="btn btn-outline-success" href="workout.php">Start Workout</a>
             <a class="btn btn-outline-success" href="steps.php">Step Counter</a>
+            <a class="btn btn-outline-success" href="physique.php">Current Physique</a>
         </div>
 
         <hr class="my-4">

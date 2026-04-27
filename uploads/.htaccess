@@ -1,0 +1,26 @@
+# Prevent PHP execution in uploads directory
+php_flag engine off
+php_flag display_errors off
+
+# Allow only specific file types
+<FilesMatch "\.(?!jpg|jpeg|png|webp|gif)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Set proper MIME types
+<FilesMatch "\.jpg$">
+    Header set Content-Type "image/jpeg"
+</FilesMatch>
+
+<FilesMatch "\.jpeg$">
+    Header set Content-Type "image/jpeg"
+</FilesMatch>
+
+<FilesMatch "\.png$">
+    Header set Content-Type "image/png"
+</FilesMatch>
+
+<FilesMatch "\.webp$">
+    Header set Content-Type "image/webp"
+</FilesMatch>
