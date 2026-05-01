@@ -15,13 +15,13 @@ $todayCalories = 0;
 $recentLogs = [];
 
 $routines = [
-    'Monday' => 'Upper Body Strength + 15 min Cardio',
-    'Tuesday' => 'Core Stability + 30 min Brisk Walk',
-    'Wednesday' => 'Lower Body Strength + Stretching',
-    'Thursday' => 'HIIT 20 min + Mobility',
-    'Friday' => 'Full Body Circuit + Light Jog',
-    'Saturday' => 'Active Recovery: Yoga + Walk',
-    'Sunday' => 'Rest and Meal Prep',
+  'Monday' => 'Chest + Triceps',
+    'Tuesday' => 'Back + Biceps',
+    'Wednesday' => 'Legs + Core',
+    'Thursday' => 'off Day',
+    'Friday' => 'Shoulders + Arms',
+    'Saturday' => 'Legs + Core',
+   'Sunday' => 'Off Day'
 ];
 $todayName = date('l');
 $todayWorkoutRoutine = $routines[$todayName] ?? 'Stay active with a light walk and stretching.';
