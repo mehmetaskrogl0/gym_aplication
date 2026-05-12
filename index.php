@@ -111,7 +111,79 @@ require_once __DIR__ . '/includes/header.php';
                         <span class="badge text-bg-light">Simple CRUD Starter</span>
                     </div>
 
-                    <form method="post" action="actions/save_calorie_log.php" class="row g-3">
+                    <!-- Mobile: Tablar -->
+                    <ul class="nav nav-tabs d-block d-lg-none mb-4" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="photo-tab" data-bs-toggle="tab" data-bs-target="#photo-panel" type="button" role="tab">📸 Scan Food</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual-panel" type="button" role="tab">✏️ Manual Entry</button>
+                        </li>
+                    </ul>
+
+                    <!-- Fotoğraf Çekme Bölümü (Mobil) -->
+                    <div class="tab-content d-block d-lg-none">
+                        <div class="tab-pane fade show active" id="photo-panel" role="tabpanel">
+                            <div class="card bg-light border-0 mb-4">
+                                <div class="card-body text-center py-5">
+                                    <p class="text-muted mb-3">Take a photo of your meal to automatically calculate calories</p>
+                                    
+                                    <!-- Kamera Erişim -->
+                                    <div class="mb-3">
+                                        <button type="button" class="btn btn-success btn-fit btn-lg" id="cameraBtn">
+                                            📷 Take Photo
+                                        </button>
+                                    </div>
+
+                                    <!-- Gizli Input -->
+                                    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
+                                    
+                                    <!-- Fotoğraf Preview -->
+                                    <div id="photoPreview" style="display: none;" class="mb-3">
+                                        <img id="previewImage" src="" alt="Food preview" class="img-fluid rounded mb-3" style="max-height: 300px;">
+                                        <div id="loadingSpinner" style="display: none;" class="text-center mb-3">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">Analyzing...</span>
+                                            </div>
+                                            <p class="text-muted mt-2">Analyzing food...</p>
+                                        </div>
+                                        <div id="analysisResult" style="display: none;" class="alert alert-info mb-3"></div>
+                                        <div class="d-flex gap-2 justify-content-center">
+                                            <button type="button" class="btn btn-success" id="confirmPhotoBtn">✓ Confirm</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="retakePhotoBtn">↻ Retake</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manual Entry Tab -->
+                        <div class="tab-pane fade" id="manual-panel" role="tabpanel">
+                            <form method="post" action="actions/save_calorie_log.php" class="row g-3" id="manualFormMobile">
+                                <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token()); ?>">
+                                <input type="hidden" name="log_date" value="<?php echo escape($today); ?>">
+                                <div class="col-12">
+                                    <label for="meal_name_mobile" class="form-label">Meal</label>
+                                    <input type="text" class="form-control" id="meal_name_mobile" name="meal_name" placeholder="Lunch" required>
+                                </div>
+                                <div class="col-12">
+                                    <label for="calories_mobile" class="form-label">Calories</label>
+                                    <input type="number" class="form-control" id="calories_mobile" name="calories" min="1" step="1" required>
+                                </div>
+                                <div class="col-12">
+                                    <label for="notes_mobile" class="form-label">Notes</label>
+                                    <input type="text" class="form-control" id="notes_mobile" name="notes" placeholder="Optional">
+                                </div>
+                                <div class="col-12 d-grid">
+                                    <button type="submit" class="btn btn-success btn-fit">Add Calorie Log</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- /Mobile Tabs End -->
+
+                    <!-- Desktop: Normal Form -->
+                    <form method="post" action="actions/save_calorie_log.php" class="row g-3 d-none d-lg-flex">
                         <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token()); ?>">
                         <div class="col-12 col-md-3">
                             <label for="log_date" class="form-label">Date</label>
@@ -180,4 +252,94 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </div>
 </main>
+
+<!-- Food Photo Recognition Script -->
+<script>
+    // Kamera butonuna tıklanınca dosya input'u aç
+    document.getElementById('cameraBtn').addEventListener('click', function() {
+        document.getElementById('photoInput').click();
+    });
+
+    // Fotoğraf seçildiğinde
+    document.getElementById('photoInput').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Fotoğrafı göster
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = document.getElementById('previewImage');
+            img.src = event.target.result;
+            document.getElementById('photoPreview').style.display = 'block';
+            
+            // Analiz etmeye başla
+            analyzeFood(event.target.result, file);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Yemeği Nutritionix API ile analiz et
+    async function analyzeFood(imageData, file) {
+        const spinner = document.getElementById('loadingSpinner');
+        const resultDiv = document.getElementById('analysisResult');
+        
+        spinner.style.display = 'block';
+        resultDiv.style.display = 'none';
+
+        try {
+            // Fotoğrafı backend'e gönder
+            const formData = new FormData();
+            formData.append('photo', file);
+            formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+            const response = await fetch('actions/process_food_photo.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            spinner.style.display = 'none';
+
+            if (data.success) {
+                // Sonuçları göster
+                resultDiv.innerHTML = `
+                    <strong>Detected:</strong> ${data.foodName}<br>
+                    <strong>Estimated Calories:</strong> ${data.calories} kcal
+                `;
+                resultDiv.style.display = 'block';
+
+                // Form'a değerleri doldur
+                document.getElementById('meal_name_mobile').value = data.foodName;
+                document.getElementById('calories_mobile').value = data.calories;
+                document.getElementById('notes_mobile').value = 'Detected from photo';
+            } else {
+                resultDiv.innerHTML = `<strong>Error:</strong> ${data.message || 'Could not analyze food'}`;
+                resultDiv.classList.add('alert-danger');
+                resultDiv.classList.remove('alert-info');
+                resultDiv.style.display = 'block';
+            }
+        } catch (error) {
+            spinner.style.display = 'none';
+            resultDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            resultDiv.classList.add('alert-danger');
+            resultDiv.classList.remove('alert-info');
+            resultDiv.style.display = 'block';
+        }
+    }
+
+    // Fotoğrafı tekrar çek
+    document.getElementById('retakePhotoBtn').addEventListener('click', function() {
+        document.getElementById('photoInput').value = '';
+        document.getElementById('photoPreview').style.display = 'none';
+        document.getElementById('analysisResult').style.display = 'none';
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('cameraBtn').click();
+    });
+
+    // Fotoğrafı onayla ve form'u submit et
+    document.getElementById('confirmPhotoBtn').addEventListener('click', function() {
+        document.getElementById('manualFormMobile').submit();
+    });
+</script>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
