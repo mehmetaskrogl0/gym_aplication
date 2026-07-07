@@ -13,6 +13,37 @@ $today = date('Y-m-d');
 $dailyTargetCalories = 2200;
 $todayCalories = 0;
 $recentLogs = [];
+$logsPerPage = 12;
+$logsOffset = max(0, (int) ($_GET['logs_offset'] ?? 0));
+$logsFragment = (($_GET['logs_fragment'] ?? '') === '1');
+$totalLogs = 0;
+$hasMoreLogs = false;
+
+function render_calorie_log_rows(array $logs): string
+{
+    ob_start();
+
+    foreach ($logs as $log):
+        ?>
+        <tr>
+            <td><?php echo escape($log['log_date']); ?></td>
+            <td><?php echo escape($log['meal_name']); ?></td>
+            <td><?php echo (int) $log['calories']; ?> kcal</td>
+            <td><?php echo escape($log['notes']); ?></td>
+            <td class="text-end">
+                <a class="btn btn-sm btn-outline-success" href="edit_calorie_log.php?id=<?php echo (int) $log['id']; ?>">Edit</a>
+                <form method="post" action="actions/delete_calorie_log.php" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token()); ?>">
+                    <input type="hidden" name="id" value="<?php echo (int) $log['id']; ?>">
+                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this calorie log?');">Delete</button>
+                </form>
+            </td>
+        </tr>
+        <?php
+    endforeach;
+
+    return (string) ob_get_clean();
+}
 
 $routines = [
   'Monday' => 'Chest + Triceps',
@@ -38,15 +69,40 @@ if ($pdo instanceof PDO) {
     ]);
     $todayCalories = (int) ($sumStatement->fetch()['total_calories'] ?? 0);
 
+    $countStatement = $pdo->prepare(
+        'SELECT COUNT(*) AS total_logs
+         FROM calorie_logs
+         WHERE user_id = :user_id'
+    );
+    $countStatement->execute(['user_id' => (int) $user['id']]);
+    $totalLogs = (int) ($countStatement->fetch()['total_logs'] ?? 0);
+
     $logsStatement = $pdo->prepare(
         'SELECT id, meal_name, calories, notes, log_date, created_at
          FROM calorie_logs
          WHERE user_id = :user_id
          ORDER BY log_date DESC, created_at DESC
-         LIMIT 12'
+         LIMIT :limit OFFSET :offset'
     );
-    $logsStatement->execute(['user_id' => (int) $user['id']]);
+    $logsStatement->bindValue(':user_id', (int) $user['id'], PDO::PARAM_INT);
+    $logsStatement->bindValue(':limit', $logsPerPage, PDO::PARAM_INT);
+    $logsStatement->bindValue(':offset', $logsOffset, PDO::PARAM_INT);
+    $logsStatement->execute();
     $recentLogs = $logsStatement->fetchAll();
+    $hasMoreLogs = ($logsOffset + count($recentLogs)) < $totalLogs;
+}
+
+if ($logsFragment) {
+    header('Content-Type: application/json; charset=UTF-8');
+
+    echo json_encode([
+        'success' => true,
+        'rowsHtml' => render_calorie_log_rows($recentLogs),
+        'hasMore' => $hasMoreLogs,
+        'nextOffset' => $logsOffset + count($recentLogs),
+    ], JSON_UNESCAPED_UNICODE);
+
+    exit;
 }
 
 $calorieProgress = (int) min(100, round(($todayCalories / max($dailyTargetCalories, 1)) * 100));
@@ -223,31 +279,27 @@ require_once __DIR__ . '/includes/header.php';
                                         <td colspan="5" class="text-center text-muted py-4">No logs yet. Add your first meal above.</td>
                                     </tr>
                                 <?php else: ?>
-                                    <?php foreach ($recentLogs as $log): ?>
-                                        <tr>
-                                            <td><?php echo escape($log['log_date']); ?></td>
-                                            <td><?php echo escape($log['meal_name']); ?></td>
-                                            <td><?php echo (int) $log['calories']; ?> kcal</td>
-                                            <td><?php echo escape($log['notes']); ?></td>
-                                            <td class="text-end">
-                                                <a class="btn btn-sm btn-outline-success" href="edit_calorie_log.php?id=<?php echo (int) $log['id']; ?>">Edit</a>
-                                                <form method="post" action="actions/delete_calorie_log.php" class="d-inline">
-                                                    <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token()); ?>">
-                                                    <input type="hidden" name="id" value="<?php echo (int) $log['id']; ?>">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this calorie log?');">Delete</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
+                                    <?php echo render_calorie_log_rows($recentLogs); ?>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
+
+                    <?php if ($hasMoreLogs): ?>
+                        <div class="text-center mt-3">
+                            <button type="button"
+                                    class="btn btn-outline-success"
+                                    id="loadMoreLogsBtn"
+                                    data-next-offset="<?php echo $logsOffset + count($recentLogs); ?>">
+                                Load More
+                            </button>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </section>
         </div>
 
-        <div class="col-12 col-xl-3">
+        <div class="col-12 col-xl-3 d-none d-xl-block">
             <?php require __DIR__ . '/includes/sidebar.php'; ?>
         </div>
     </div>
@@ -340,6 +392,41 @@ require_once __DIR__ . '/includes/header.php';
     document.getElementById('confirmPhotoBtn').addEventListener('click', function() {
         document.getElementById('manualFormMobile').submit();
     });
+
+    const loadMoreLogsBtn = document.getElementById('loadMoreLogsBtn');
+    if (loadMoreLogsBtn) {
+        loadMoreLogsBtn.addEventListener('click', async function() {
+            const nextOffset = Number(loadMoreLogsBtn.dataset.nextOffset || '0');
+            loadMoreLogsBtn.disabled = true;
+            loadMoreLogsBtn.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`index.php?logs_fragment=1&logs_offset=${nextOffset}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error('Could not load more logs');
+                }
+
+                const tbody = document.querySelector('.table-responsive tbody');
+                if (tbody && data.rowsHtml) {
+                    tbody.insertAdjacentHTML('beforeend', data.rowsHtml);
+                }
+
+                if (data.hasMore) {
+                    loadMoreLogsBtn.dataset.nextOffset = String(data.nextOffset);
+                    loadMoreLogsBtn.disabled = false;
+                    loadMoreLogsBtn.textContent = 'Load More';
+                } else {
+                    loadMoreLogsBtn.remove();
+                }
+            } catch (error) {
+                loadMoreLogsBtn.disabled = false;
+                loadMoreLogsBtn.textContent = 'Load More';
+                alert(error.message || 'Could not load more logs');
+            }
+        });
+    }
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

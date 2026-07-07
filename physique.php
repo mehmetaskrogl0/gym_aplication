@@ -199,7 +199,7 @@ if ($profile && $profile['target_muscles']) {
     
     <div class="container-fluid py-4">
         <div class="row">
-            <div class="col-md-3">
+            <div class="col-md-3 d-none d-md-block">
                 <?php include 'includes/sidebar.php'; ?>
             </div>
             
