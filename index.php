@@ -300,6 +300,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <div class="col-12 col-xl-3 d-none d-xl-block">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <?php require __DIR__ . '/includes/sidebar.php'; ?>
         </div>
     </div>
