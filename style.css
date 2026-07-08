@@ -65,6 +65,10 @@ body {
     background: var(--fit-white);
 }
 
+.fit-hide-mobile {
+    display: block;
+}
+
 .card,
 .table,
 .form-control,
@@ -95,5 +99,11 @@ body {
 @media (max-width: 991.98px) {
     .fit-hero {
         min-height: 230px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .fit-hide-mobile {
+        display: none !important;
     }
 }

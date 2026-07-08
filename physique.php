@@ -199,11 +199,9 @@ if ($profile && $profile['target_muscles']) {
     
     <div class="container-fluid py-4">
         <div class="row">
-            <?php if (!is_mobile()): ?>
-            <div class="col-md-3">
+            <div class="col-md-3 fit-hide-mobile">
                 <?php include 'includes/sidebar.php'; ?>
             </div>
-            <?php endif; ?>
             
             <div class="col-md-9">
                 <!-- Header -->
